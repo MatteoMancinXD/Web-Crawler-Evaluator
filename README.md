@@ -364,8 +364,8 @@ node dist/cli.js scan --url https://slow-site.com --timeout 60000
 Windows PowerShell blocks `.ps1` scripts by default. You have two easy solutions (no Admin required):
 1. **Option 1 (Recommended):** Run with `node` or `npm.cmd` directly:
    ```powershell
-   node dist/crawlCli.js --seeds https://www.edutecnica.it
-   npm.cmd run crawl -- --seeds https://www.edutecnica.it
+   node dist/crawlCli.js --seeds https://www.example.com
+   npm.cmd run crawl -- --seeds https://www.example.com
    ```
 2. **Option 2:** Enable script execution for your user profile in PowerShell:
    ```powershell
