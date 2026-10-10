@@ -27,6 +27,7 @@ import {
   formatElapsed,
 } from './reporter.js';
 import { auditUrl } from '../runner/auditor.js';
+import { closeSharedBrowser } from '../runner/browser.js';
 import { writeJson } from '../reporters/jsonReporter.js';
 import { AuditReport } from '../types/index.js';
 import { normaliseUrl, sleep } from '../utils/helpers.js';
@@ -238,6 +239,7 @@ export class CrawlerEngine {
     process.off('SIGINT', shutdown);
     process.off('SIGTERM', shutdown);
     this.db.close();
+    await closeSharedBrowser();
   }
 
   // ── Core processing pipeline ──────────────────────────────

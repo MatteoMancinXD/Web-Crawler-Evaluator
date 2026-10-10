@@ -24,8 +24,36 @@ export interface BrowserSession {
   close: () => Promise<void>;
 }
 
+let sharedBrowser: Browser | null = null;
+
+export async function getSharedBrowser(): Promise<Browser> {
+  if (!sharedBrowser) {
+    sharedBrowser = await chromium.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-web-security',
+        '--ignore-certificate-errors',
+      ],
+    });
+  }
+  return sharedBrowser;
+}
+
+export async function closeSharedBrowser(): Promise<void> {
+  if (sharedBrowser) {
+    try {
+      await sharedBrowser.close();
+    } catch (e) {}
+    sharedBrowser = null;
+  }
+}
+
 /**
- * Launch a fresh Chromium browser session.
+ * Launch a fresh Chromium browser session (Context) on the shared browser.
  * @param mobile   - emulate mobile viewport / UA if true
  * @param ignoreSSL - bypass SSL certificate errors (for auditing HTTP-only or broken-SSL sites)
  */
@@ -33,17 +61,7 @@ export async function createSession(
   mobile = false,
   ignoreSSL = true,
 ): Promise<BrowserSession> {
-  const browser = await chromium.launch({
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--disable-web-security',
-      ignoreSSL ? '--ignore-certificate-errors' : '',
-    ].filter(Boolean),
-  });
+  const browser = await getSharedBrowser();
 
   const viewport  = mobile ? MOBILE_VIEWPORT : DESKTOP_VIEWPORT;
   const userAgent = mobile ? MOBILE_UA : DESKTOP_UA;
@@ -68,7 +86,7 @@ export async function createSession(
     try {
       await page.close();
       await context.close();
-      await browser.close();
+      // DO NOT close the shared browser here
     } catch (err) {
       logger.warn(`Error closing browser session: ${(err as Error).message}`);
     }
