@@ -1,0 +1,51 @@
+{
+  "name": "web-quality-audit-engine",
+  "version": "1.0.0",
+  "description": "Modular Website Quality & UX Audit Engine — scores sites on Performance, Mobile/UX, Accessibility, and Tech Modernity",
+  "main": "dist/index.js",
+  "bin": {
+    "web-audit": "dist/cli.js",
+    "web-crawl": "dist/crawlCli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node src/cli.ts",
+    "start": "node dist/cli.js",
+    "crawl": "node dist/crawlCli.js",
+    "crawl:fresh": "node dist/crawlCli.js --fresh",
+    "clean:db": "node -e \"const fs=require('fs'); if(fs.existsSync('./data/crawler.db')){ fs.unlinkSync('./data/crawler.db'); console.log('Crawler DB deleted.'); } else { console.log('No DB to delete.'); }\"",
+    "lint": "eslint src --ext .ts",
+    "postinstall": "npx playwright install chromium --with-deps"
+  },
+  "keywords": [
+    "web-audit",
+    "performance",
+    "accessibility",
+    "ux",
+    "lighthouse",
+    "playwright"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@axe-core/playwright": "^4.10.1",
+    "axe-core": "^4.10.3",
+    "chalk": "^4.1.2",
+    "commander": "^12.1.0",
+    "fast-csv": "^5.0.1",
+    "lighthouse": "^12.4.0",
+    "ora": "^5.4.1",
+    "p-limit": "^3.1.0",
+    "playwright": "^1.49.1",
+    "sql.js": "^1.14.2",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/sql.js": "^1.4.11",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

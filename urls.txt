@@ -1,0 +1,6 @@
+# Sample URL list for batch auditing
+# One URL per line — lines starting with # are ignored
+
+https://example.com
+https://web.dev
+https://httpbin.org
