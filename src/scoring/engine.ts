@@ -21,6 +21,7 @@ import {
   TechStackMetrics,
   SeoMetrics,
   ScoringResult,
+  LegacyScoreBreakdown,
 } from '../types/index.js';
 import { bytesToMb, bytesToKb, msToReadable, round } from '../utils/helpers.js';
 
@@ -108,25 +109,7 @@ function scoreMobileUx(m: MobileUxMetrics): number {
 
   if (m.hasIntrusivePopup) score = deduct(score, 15);
 
-  // ── Aesthetics & Visual Design Polish ─────────────────────
-  if (m.designAesthetics) {
-    const a = m.designAesthetics;
-    if (!a.modernLayoutUsed) score = deduct(score, 25);
-    if (a.hasDefaultSerifFont) score = deduct(score, 20);
-    if (a.hasRawUnstyledLinks) score = deduct(score, 15);
-    if (a.aestheticFeaturesCount === 0) score = deduct(score, 20);
-    else if (a.aestheticFeaturesCount <= 2) score = deduct(score, 10);
-    if (!a.hasMediaQueries) score = deduct(score, 15);
-    if (a.hasFixedLegacyWidth) score = deduct(score, 15);
-    if (a.vintageElementsFound && a.vintageElementsFound.length > 0) {
-      score = deduct(score, Math.min(25, a.vintageElementsFound.length * 8));
-    }
-
-    // If strongly classified as vintage/outdated, hard-cap the mobile UX score at 25
-    if (a.isOutdatedOrVintage) {
-      score = Math.min(score, 25);
-    }
-  }
+  if (m.hasIntrusivePopup) score = deduct(score, 15);
 
   return Math.max(0, Math.min(100, score));
 }
@@ -208,6 +191,7 @@ export function computeScores(
   a11y: AccessibilityMetrics,
   tech: TechStackMetrics,
   seo: SeoMetrics,
+  legacy: LegacyScoreBreakdown,
 ): ScoringResult {
   const categoryScores: CategoryScores = {
     performance:   scorePerformance(perf),
@@ -228,7 +212,7 @@ export function computeScores(
   // raw default serif, unstyled blue links, obsolete HTML tags, no visual depth),
   // fast load times (low HTML payload) must NEVER disguise a dated visual presentation.
   // We cap overall score at 42 to guarantee a Grade F and immediate lead qualification.
-  if (mobile.designAesthetics?.isOutdatedOrVintage) {
+  if (legacy.is_candidate) {
     overallScore = Math.min(overallScore, 42);
   }
 
@@ -248,6 +232,7 @@ export function generateIssues(
   a11y: AccessibilityMetrics,
   tech: TechStackMetrics,
   seo: SeoMetrics,
+  legacy: LegacyScoreBreakdown,
 ): Issue[] {
   const issues: Issue[] = [];
 
@@ -362,36 +347,24 @@ export function generateIssues(
     });
   }
 
-  // ── Design Aesthetics & Visual Obsoleteness ──────────────────
-  if (mobile.designAesthetics?.isOutdatedOrVintage) {
-    const a = mobile.designAesthetics;
-    const reasons: string[] = [];
-    if (!a.modernLayoutUsed) reasons.push('No modern layout engine (CSS Flexbox/Grid) detected');
-    if (a.hasDefaultSerifFont) reasons.push('Default browser serif typography (Times New Roman / raw serif)');
-    if (a.hasRawUnstyledLinks) reasons.push('Unstyled default browser blue hyperlinks (#0000ee)');
-    if (a.aestheticFeaturesCount === 0) reasons.push('Zero modern CSS styling depth (no border-radius, elevation, or transitions)');
-    if (a.vintageElementsFound && a.vintageElementsFound.length > 0) {
-      reasons.push(`Obsolete vintage HTML elements/attributes (<${a.vintageElementsFound.join('>, <')}>)`);
-    }
-    if (!a.hasMediaQueries) reasons.push('Missing responsive @media queries');
-    if (a.hasFixedLegacyWidth) reasons.push('Fixed non-responsive desktop width container');
-
+  // ── Design Aesthetics & Visual Obsoleteness (Legacy Pipeline) ─
+  if (legacy.is_candidate) {
     issues.push({
       category: 'mobileUx',
       severity: 'critical',
-      title: 'Severely outdated 1990s/early-2000s visual design & UX aesthetics',
-      detail: `The site exhibits obsolete design hallmarks: ${reasons.join('; ')}. Estimated vintage index: ${a.vintageScore}/100.`,
-      businessImpact: 'Users form brand credibility impressions within 50 milliseconds. Websites with 90s-era aesthetics suffer immediate trust deficit, high bounce rates, and lost conversions, regardless of backend speed.',
-      metric: `${a.vintageScore}/100 vintage index`,
+      title: `Severely outdated visual design (${legacy.estimated_era})`,
+      detail: `The site exhibits obsolete design hallmarks. Ugliness score: ${legacy.score}/100. Issues: ${Object.values(legacy.breakdown).filter(b => b.score > 0).map(b => b.reason).join('; ')}`,
+      businessImpact: 'Users form brand credibility impressions within 50 milliseconds. Websites with 90s/00s-era aesthetics suffer immediate trust deficit, high bounce rates, and lost conversions.',
+      metric: `${legacy.score}/100 ugliness score`,
     });
-  } else if (mobile.designAesthetics && mobile.designAesthetics.vintageScore >= 30) {
+  } else if (legacy.score >= 20) {
     issues.push({
       category: 'mobileUx',
       severity: 'warning',
       title: 'Dated visual styling & lack of modern design polish',
-      detail: `The website lacks modern layout techniques or typographic hierarchy. Aesthetic features count: ${mobile.designAesthetics.aestheticFeaturesCount}/5.`,
-      businessImpact: 'A dated look-and-feel diminishes perceived service quality and causes modern mobile visitors to seek competitors.',
-      metric: `${mobile.designAesthetics.visualStyleScore}/100 visual polish`,
+      detail: `The website lacks modern layout techniques or typographic hierarchy. Ugliness Score: ${legacy.score}/100.`,
+      businessImpact: 'A dated look-and-feel diminishes perceived service quality and causes modern visitors to seek competitors.',
+      metric: `${legacy.score}/100 ugliness score`,
     });
   }
 
@@ -567,6 +540,7 @@ export function generateQuickWins(
   a11y: AccessibilityMetrics,
   tech: TechStackMetrics,
   seo: SeoMetrics,
+  legacy: LegacyScoreBreakdown,
 ): QuickWin[] {
   const wins: QuickWin[] = [];
 
@@ -590,13 +564,13 @@ export function generateQuickWins(
     });
   }
 
-  if (mobile.designAesthetics?.isOutdatedOrVintage) {
+  if (legacy.is_candidate) {
     wins.push({
       category: 'mobileUx',
       effort: 'medium',
       title: 'Modernize layout and visual typography design system',
       action: 'Adopt CSS Flexbox/Grid for containers, implement a modern sans-serif system font stack (e.g. system-ui, -apple-system, sans-serif), replace raw blue links with branded interactive styles, and add modern card/button radius.',
-      estimatedImpact: 'Transforms the site from a 90s aesthetic into a professional, trustworthy modern presence. Immediately restores visitor trust and conversion rates.',
+      estimatedImpact: 'Transforms the site from a legacy aesthetic into a professional, trustworthy modern presence. Immediately restores visitor trust and conversion rates.',
     });
   }
 

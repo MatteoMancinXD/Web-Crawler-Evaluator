@@ -13,7 +13,7 @@
 // ============================================================
 
 import { callRizzoFlow, noulIsYes, noulConfidence, NoulAnswer, ChoiceAnswer } from './rizzoFlowClient.js';
-import { DesignAestheticsMetrics } from '../types/index.js';
+import { LegacyDesignMetrics } from '../types/index.js';
 import { logger } from '../utils/logger.js';
 
 // ─── Output type ─────────────────────────────────────────────
@@ -50,28 +50,26 @@ export interface DesignEpochDecision {
  */
 export async function classifyDesignAesthetics(
   url: string,
-  algorithmic: DesignAestheticsMetrics,
+  algorithmic: LegacyDesignMetrics,
 ): Promise<DesignEpochDecision> {
 
   // Build a rich state for the LLM, using all algorithmic signals
-  const vintageItems = algorithmic.vintageElementsFound.length > 0
-    ? algorithmic.vintageElementsFound.join(', ')
-    : 'none';
-
   const state = [
     `Website URL: ${url}`,
     '',
     'Algorithmic design signals collected by the audit engine:',
-    `  Vintage HTML elements found: ${vintageItems}`,
-    `  Uses CSS Flexbox or Grid layout: ${algorithmic.modernLayoutUsed}`,
-    `  Has responsive @media queries: ${algorithmic.hasMediaQueries}`,
-    `  Uses modern web fonts or modern sans-serif stack: ${algorithmic.modernTypographyUsed}`,
-    `  Body text set in default browser serif (Times New Roman / raw serif): ${algorithmic.hasDefaultSerifFont}`,
-    `  Links are unstyled browser-default blue (#0000ee) with underline: ${algorithmic.hasRawUnstyledLinks}`,
-    `  Modern CSS polish features found (border-radius, box-shadow, transitions, gradients): ${algorithmic.aestheticFeaturesCount} out of 4`,
-    `  Fixed legacy-width container (≤ 1020px hardcoded): ${algorithmic.hasFixedLegacyWidth}`,
-    `  Algorithmic vintage score (0 = modern, 100 = fully vintage): ${algorithmic.vintageScore}`,
-    `  Algorithmic classification: ${algorithmic.isOutdatedOrVintage ? 'OUTDATED / VINTAGE' : 'MODERN'}`,
+    `  Total DOM Nodes: ${algorithmic.domNodeCount}`,
+    `  Maximum Navigation Links: ${algorithmic.navLinkCount} (MegaMenu: ${algorithmic.hasMegaMenu})`,
+    `  Uses Flexbox or Grid layout: ${algorithmic.layout.usesFlexOrGrid}`,
+    `  Uses legacy float/clear: ${algorithmic.layout.usesLegacyFloatClear}`,
+    `  Fixed legacy-width container (≤ 1024px hardcoded): ${algorithmic.layout.hasFixedLegacyWidth}`,
+    `  Has Sharp Borders (no radius): ${algorithmic.layout.hasSharpBorders}`,
+    `  Body text size: ${Math.round(algorithmic.typography.bodyFontSizePx)}px`,
+    `  Body line-height: ${algorithmic.typography.bodyLineHeight.toFixed(2)}`,
+    `  Uses legacy web-safe fonts: ${algorithmic.typography.isLegacyWebSafeFont}`,
+    `  Copyright Year: ${algorithmic.legacyTech.copyrightYear || 'Unknown'}`,
+    `  Has Obsolete HTML Tags (<center>, <font>): ${algorithmic.legacyTech.hasObsoleteHtmlTags}`,
+    `  Has Legacy CSS Frameworks (Bootstrap 2/3): ${algorithmic.legacyTech.hasLegacyCssFrameworks}`,
     '',
     'Use all of the above signals together to form a holistic judgment about the design era of this website.',
   ].join('\n');
@@ -103,15 +101,12 @@ export async function classifyDesignAesthetics(
   if (rizzoResult === null) {
     logger.debug('[DesignClassifier] RizzoFlow unavailable — returning algorithmic result as-is.');
     return {
-      isOutdatedOrVintage: algorithmic.isOutdatedOrVintage,
-      vintageScore:        algorithmic.vintageScore,
-      designEra:           algorithmic.isOutdatedOrVintage
-        ? (algorithmic.vintageScore >= 70 ? 'vintage_90s' : 'dated_2000s')
-        : 'modern',
+      isOutdatedOrVintage: algorithmic.legacyTech.hasObsoleteHtmlTags || algorithmic.layout.hasFixedLegacyWidth,
+      vintageScore:        50,
+      designEra:           'undetermined',
       confidence:  0.65,
       source:      'algorithmic-fallback',
-      reason:      `Algorithmic vintage score: ${algorithmic.vintageScore}/100. ` +
-                   `RizzoFlow unavailable; using heuristic-only classification.`,
+      reason:      `RizzoFlow unavailable; using heuristic-only classification.`,
     };
   }
 
@@ -122,8 +117,8 @@ export async function classifyDesignAesthetics(
   if (!eraAnswer || !vintageAnswer || eraAnswer.type !== 'choice' || vintageAnswer.type !== 'noul') {
     logger.warn('[DesignClassifier] Incomplete RizzoFlow response — using algorithmic fallback.');
     return {
-      isOutdatedOrVintage: algorithmic.isOutdatedOrVintage,
-      vintageScore:        algorithmic.vintageScore,
+      isOutdatedOrVintage: algorithmic.legacyTech.hasObsoleteHtmlTags || algorithmic.layout.hasFixedLegacyWidth,
+      vintageScore:        50,
       designEra:           'undetermined',
       confidence:          0.5,
       source:              'algorithmic-fallback',
@@ -143,16 +138,16 @@ export async function classifyDesignAesthetics(
   const llmIsVintage = isVintageYes;
   const llmConfident = vintageProb >= 0.55;
 
-  const finalIsVintage = llmConfident ? llmIsVintage : algorithmic.isOutdatedOrVintage;
+  // Fallback defaults if heuristic fails
+  const algoVintage = algorithmic.legacyTech.hasObsoleteHtmlTags || algorithmic.layout.hasFixedLegacyWidth;
 
-  // Blend vintage score: if LLM agrees with algorithmic, keep it.
-  // If they disagree, push the score toward the LLM's belief.
-  let finalVintageScore = algorithmic.vintageScore;
-  if (llmConfident && llmIsVintage !== algorithmic.isOutdatedOrVintage) {
-    // Disagreement — nudge score toward LLM direction
+  const finalIsVintage = llmConfident ? llmIsVintage : algoVintage;
+
+  let finalVintageScore = 50;
+  if (llmConfident) {
     finalVintageScore = llmIsVintage
-      ? Math.min(100, algorithmic.vintageScore + Math.round(vintageProb * 30))
-      : Math.max(0,   algorithmic.vintageScore - Math.round(vintageProb * 30));
+      ? Math.min(100, 50 + Math.round(vintageProb * 50))
+      : Math.max(0,   50 - Math.round(vintageProb * 50));
   }
 
   const confidence = (eraProb + vintageProb) / 2;
@@ -160,7 +155,7 @@ export async function classifyDesignAesthetics(
   logger.info(
     `[RizzoFlow] Design classification: ${era} / vintage=${isVintageYes} ` +
     `(confidence=${(confidence * 100).toFixed(1)}%, latency=${latencyMs ?? '?'}ms) ` +
-    `[algorithmic was: ${algorithmic.isOutdatedOrVintage ? 'VINTAGE' : 'MODERN'}, score=${algorithmic.vintageScore}]`,
+    `[algorithmic was: ${algoVintage ? 'VINTAGE' : 'MODERN'}]`,
   );
 
   return {
@@ -172,8 +167,8 @@ export async function classifyDesignAesthetics(
     reason: [
       `RizzoFlow classified design era as "${era}" (${(eraProb * 100).toFixed(1)}% confidence).`,
       `Vintage judgment: ${isVintageYes ? 'YES' : 'NO'} (${(vintageProb * 100).toFixed(1)}% confidence).`,
-      llmConfident && isVintageYes !== algorithmic.isOutdatedOrVintage
-        ? `Note: LLM overrode the algorithmic heuristic (was "${algorithmic.isOutdatedOrVintage ? 'vintage' : 'modern'}").`
+      llmConfident && isVintageYes !== algoVintage
+        ? `Note: LLM overrode the algorithmic heuristic.`
         : 'LLM confirmed the algorithmic heuristic.',
     ].join(' '),
     rizzoLatencyMs: latencyMs,

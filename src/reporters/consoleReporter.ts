@@ -96,7 +96,7 @@ export function printReport(report: AuditReport): void {
   const tech   = metrics.techStack;
   const a11y   = metrics.accessibility;
   const seo    = metrics.seo;
-  const aeth   = mobile.designAesthetics;
+  const legacy = report.legacyScore;
 
   console.log(chalk.bold('  Key Metrics:'));
   console.log(`  ${chalk.gray('LCP:')}         ${chalk.white(msToReadable(perf.lcp))}`);
@@ -111,11 +111,11 @@ export function printReport(report: AuditReport): void {
   console.log(`  ${chalk.gray('HTTPS:')}       ${tech.isHttps ? chalk.green('✔') : chalk.red('✖')}`);
   console.log(`  ${chalk.gray('SSL valid:')}   ${tech.sslValid ? chalk.green('✔') : chalk.red(`✖  ${tech.sslError ?? ''}`)}`);
   console.log(`  ${chalk.gray('Viewport:')}    ${mobile.hasViewportMeta ? chalk.green('✔') : chalk.red('✖  Missing')}`);
-  if (aeth) {
-    if (aeth.isOutdatedOrVintage) {
-      console.log(`  ${chalk.gray('Aesthetics:')}  ${chalk.bgRed.white.bold(' ✖ VINTAGE / 1990s DESIGN ')} (Vintage idx: ${aeth.vintageScore}/100)`);
+  if (legacy) {
+    if (legacy.is_candidate) {
+      console.log(`  ${chalk.gray('Aesthetics:')}  ${chalk.bgRed.white.bold(' ✖ VINTAGE / LEGACY DESIGN ')} (Ugliness Score: ${legacy.score}/100)`);
     } else {
-      console.log(`  ${chalk.gray('Aesthetics:')}  ${chalk.green('✔ Modern layout & styling')} (Polish: ${aeth.visualStyleScore}/100)`);
+      console.log(`  ${chalk.gray('Aesthetics:')}  ${chalk.green('✔ Modern layout & styling')} (Ugliness Score: ${legacy.score}/100)`);
     }
   }
   console.log(`  ${chalk.gray('axe issues:')}  ${chalk.white(a11y.axeTotalViolationCount.toString())}`);

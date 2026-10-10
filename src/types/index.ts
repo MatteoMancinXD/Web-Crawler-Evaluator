@@ -65,29 +65,42 @@ export interface PerformanceMetrics {
   lighthousePerformanceScore: number | null;
 }
 
-export interface DesignAestheticsMetrics {
-  /** True if the website exhibits strong 1990s/early-2000s design hallmarks */
-  isOutdatedOrVintage: boolean;
-  /** Estimated vintage index from 0 to 100 (higher = more dated) */
-  vintageScore: number;
-  /** Whether modern layout engines (CSS Flexbox or CSS Grid) are detected */
-  modernLayoutUsed: boolean;
-  /** Whether modern web fonts or a modern sans-serif system stack is used */
-  modernTypographyUsed: boolean;
-  /** Whether primary body font is default browser serif (Times New Roman / raw serif) */
-  hasDefaultSerifFont: boolean;
-  /** Whether links use raw default browser blue (#0000ee) with standard underline */
-  hasRawUnstyledLinks: boolean;
-  /** Number of modern CSS styling depth features (border-radius, box-shadow, transitions, gradients, css variables) */
-  aestheticFeaturesCount: number;
-  /** List of legacy/vintage HTML elements or attributes found (e.g. <center>, <font>, cellpadding, bgcolor) */
-  vintageElementsFound: string[];
-  /** Whether responsive @media queries are present in stylesheets */
-  hasMediaQueries: boolean;
-  /** Whether page uses hardcoded legacy fixed-width containers (<= 980px) */
-  hasFixedLegacyWidth: boolean;
-  /** Visual polish score from 0 to 100 (higher = more polished and modern) */
-  visualStyleScore: number;
+export interface LegacyDesignMetrics {
+  domNodeCount: number;
+  navLinkCount: number;
+  hasMegaMenu: boolean;
+  hasMobileHorizontalOverflow: boolean;
+  typography: {
+    bodyFontSizePx: number;
+    bodyLineHeight: number;
+    isLegacyWebSafeFont: boolean;
+  };
+  layout: {
+    hasFixedLegacyWidth: boolean;
+    hasSharpBorders: boolean;
+    usesLegacyFloatClear: boolean;
+    usesFlexOrGrid: boolean;
+  };
+  legacyTech: {
+    copyrightYear: number | null;
+    hasObsoleteHtmlTags: boolean;
+    hasLegacyCssFrameworks: boolean; // e.g. bootstrap 2/3
+  };
+}
+
+export interface LegacyScoreBreakdown {
+  score: number; // 0-100 Ugliness Score
+  is_candidate: boolean;
+  estimated_era: string;
+  breakdown: {
+    typography: { score: number; reason: string };
+    layout: { score: number; reason: string };
+    navigation: { score: number; reason: string };
+    mobile_readiness: { score: number; reason: string };
+    density: { score: number; reason: string };
+    tech: { score: number; reason: string };
+  };
+  sales_pitch_hooks: string[];
 }
 
 export interface MobileUxMetrics {
@@ -97,7 +110,6 @@ export interface MobileUxMetrics {
   smallTapTargets: TapTargetViolation[];
   hasIntrusivePopup: boolean;
   contentOverflowOnMobile: boolean;
-  designAesthetics: DesignAestheticsMetrics;
 }
 
 export interface TapTargetViolation {
@@ -232,10 +244,12 @@ export interface AuditReport {
     techStack: TechStackMetrics;
     accessibility: AccessibilityMetrics;
     seo: SeoMetrics;
+    legacyDesign: LegacyDesignMetrics;
   };
 
   // Scoring
   scoring: ScoringResult;
+  legacyScore: LegacyScoreBreakdown;
 
   // Actionable output
   critical_issues: Issue[];
@@ -296,9 +310,7 @@ export interface AuditCsvRow {
   hasViewportMeta: boolean;
   hasHorizontalScroll: boolean;
   smallTapTargetsCount: number;
-  isOutdatedOrVintage: boolean;
-  visualStyleScore: number;
-  vintageElements: string;
+  legacyUglinessScore: number;
   isHttps: boolean;
   sslValid: boolean;
   hasMixedContent: boolean;
