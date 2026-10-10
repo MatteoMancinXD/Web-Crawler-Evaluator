@@ -187,7 +187,7 @@ export async function runLighthouse(url: string): Promise<number | null> {
       '--output=json',
       `--output-path="${tmpOutput}"`,
       '--only-categories=performance',
-      '--chrome-flags="--headless=new --no-sandbox --disable-dev-shm-usage"',
+      '--chrome-flags="--headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --disable-webgl --disable-software-rasterizer"',
       '--quiet',
     ].join(' ');
 
