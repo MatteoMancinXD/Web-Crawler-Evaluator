@@ -34,7 +34,6 @@ export async function getSharedBrowser(): Promise<Browser> {
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-gpu',
         '--disable-web-security',
         '--ignore-certificate-errors',
       ],
