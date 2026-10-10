@@ -76,9 +76,9 @@ export async function createSession(
     serviceWorkers: 'block',
   });
 
-  // Block heavy third-party analytics/ads to isolate first-party perf
+  // Block heavy third-party analytics/ads/compliance scripts to isolate first-party perf
   await context.route(
-    /\.(doubleclick|googletagmanager|facebook\.net|hotjar|intercom)\./,
+    /\.(doubleclick|googletagmanager|facebook\.net|hotjar|intercom|iubenda|cookiebot|onetrust|trustarc|usercentrics|quantcast|didomi)\./,
     (route) => route.abort(),
   );
 
